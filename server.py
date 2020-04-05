@@ -17,21 +17,21 @@ def get_db():
         db = g._database = sqlite3.connect(DATABASE)
     return db
 
-def exec_stmt(sql):
+def exec_stmt(sql,args={}):
     try:
         db = get_db()
         cur = db.cursor()
-        cur.execute(sql)
+        cur.execute(sql,args)
         db.commit()
         cur.close()
         return '{"success":"true"}'
     except:
         return '{"success":"false"}'
 
-def run_query(sql):
+def run_query(sql,args={}):
     db = get_db()
     cur = db.cursor()
-    cur.execute(sql)
+    cur.execute(sql,args)
     r = cur.fetchall()
     cur.close()
     return r
@@ -72,50 +72,50 @@ def list_games():
 
 @app.route('/list_players/<string:game_name>',strict_slashes=False)
 def list_players(game_name):
-    r = run_query("select player from game_queue where game_name = '" + game_name +"';")
+    r = run_query("select player from game_queue where game_name = :game_name;",{"game_name":game_name})
     d = {x[0]:'x' for x in r}
     return jsonify(d)
 
 @app.route('/play/<string:game_name>/<string:player>',strict_slashes=False)
 def play(game_name,player):
-    d = run_query("select cap,players from game where name = '" + game_name +"';")[0]
+    d = run_query("select cap,players from game where name = :game_name;",{"game_name":game_name})[0]
     cap = d[0]
     player_min = d[1]
-    exec_stmt("insert into game_queue values('" + game_name + "','" + player + "');")
+    exec_stmt("insert into game_queue values(:game_name,:player);",{"game_name":game_name,"player":player})
     return render_template('play.html',nm=game_name,pl=player,cp=cap,pm=player_min) 
 
 @app.route('/start/<string:game_name>',strict_slashes=False)
 def start(game_name):
-    r = run_query("select (select count(distinct player) from game_queue where game_name = '" + game_name + "') >= (select players from game where name = '" + game_name + "')")
+    r = run_query("select (select count(distinct player) from game_queue where game_name = :game_name) >= (select players from game where name = :game_name);",{"game_name":game_name})
     d = {"start":x[0] for x in r}
     return jsonify(d)
 
 @app.route('/create/<string:game_name>/<int:players>',strict_slashes=False)
 def create(game_name,players):
     cap = random.randint(100,5001)
-    return exec_stmt("insert into game values('" + game_name + "'," + str(players) + "," + str(cap) + ");")
+    return exec_stmt("insert into game values(:game_name,:players,:cap);",{"game_name":game_name,"players":players,"cap":cap})
 
 @app.route('/guess/<string:game_name>/<string:player>/<int:prime_guess>',strict_slashes=False)
 def guess(game_name,player,prime_guess):
     is_prime = 0
     if prime_guess in primes:
         is_prime = 1
-    return exec_stmt("insert into guess values('" + game_name + "','" + player + "'," + str(prime_guess) + "," +  str(is_prime) + ");")
+    return exec_stmt("insert into guess values(:game_name,:player,:prime_guess,:is_prime);",{"game_name":game_name,"player":player,"prime_guess":prime_guess,"is_prime":is_prime})
 
 @app.route('/results/<string:game_name>',strict_slashes=False)
 def results(game_name):
-    r = run_query("select player,prime_guess,is_prime from guess where game_name = '" + game_name + "';" )
+    r = run_query("select player,prime_guess,is_prime from guess where game_name = :game_name;",{"game_name":game_name})
     d = {x[0]:{'guess':x[1],'prime':x[2]} for x in r}
     return jsonify(d)
 
 @app.route('/clear/<string:game_name>',strict_slashes=False)
 def clear(game_name):
-    exec_stmt("delete from game where name='" + game_name + "';")
-    return exec_stmt("delete from guess where game_name='" + game_name + "';")
+    exec_stmt("delete from game where name= :game_name;",{"game_name":game_name})
+    return exec_stmt("delete from guess where game_name= :game_name;",{"game_name":game_name})
 
 @app.route('/register/<string:username>',strict_slashes=False)
 def register(username):
-    return exec_stmt("insert into player values('" + username + "');")
+    return exec_stmt("insert into player values(:username);",{"username":username})
 
 @app.route('/cap',strict_slashes=False)
 def cap():
