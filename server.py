@@ -104,6 +104,11 @@ def guess(game_name,player,prime_guess):
 
 @app.route('/results/<string:game_name>',strict_slashes=False)
 def results(game_name):
+    p = run_query("select players from game where name = :game_name;",{"game_name":game_name})[0][0]
+    return render_template('results.html',nm=game_name,pm=p) 
+
+@app.route('/scores/<string:game_name>',strict_slashes=False)
+def scores(game_name):
     r = run_query("select player,prime_guess,is_prime from guess where game_name = :game_name;",{"game_name":game_name})
     d = {x[0]:{'guess':x[1],'prime':x[2]} for x in r}
     return jsonify(d)
